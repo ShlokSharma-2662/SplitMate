@@ -1,0 +1,226 @@
+@page "/groups/{GroupId:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using MediatR
+@using SplitMate.Application.Expenses
+@using SplitMate.Application.Groups
+@using SplitMate.Domain.Enums
+@inject ISender Sender
+@inject IJSRuntime Js
+
+<PageTitle>@(group?.Name ?? "Group") - SplitMate</PageTitle>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@(group?.Name ?? "…")</li>
+    </ol>
+</nav>
+
+<ErrorList Errors="loadErrors" />
+
+@if (group is null && loadErrors.Count == 0)
+{
+    <p><em>Loading…</em></p>
+}
+else if (group is not null)
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h1 class="mb-0">@group.Name</h1>
+        <div>
+            <a class="btn btn-outline-primary" href="groups/@group.Id/balances">View balances</a>
+            <a class="btn btn-primary" href="groups/@group.Id/expenses/new">Add expense</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">Members (@group.Members.Count)</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var member in group.Members)
+                    {
+                        <li class="list-group-item">
+                            <strong>@member.DisplayName</strong>
+                            <div class="small text-muted">@member.Email</div>
+                        </li>
+                    }
+                </ul>
+                <div class="card-body border-top">
+                    <h3 class="h6">Add member by email</h3>
+                    <ErrorList Errors="addMemberErrors" />
+                    @if (addMemberSuccess is not null)
+                    {
+                        <div class="alert alert-success py-2">@addMemberSuccess</div>
+                    }
+                    <EditForm Model="newMember" OnValidSubmit="AddMemberAsync" FormName="add-member">
+                        <DataAnnotationsValidator />
+                        <div class="input-group">
+                            <InputText @bind-Value="newMember.Email" class="form-control" placeholder="friend@example.com" />
+                            <button type="submit" class="btn btn-outline-primary" disabled="@busy">Add</button>
+                        </div>
+                        <ValidationMessage For="() => newMember.Email" class="text-danger" />
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <h2 class="h4">Expenses</h2>
+            <ErrorList Errors="expenseErrors" />
+            @if (group.Expenses.Count == 0)
+            {
+                <p class="text-muted">No expenses yet. Add the first one!</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Paid by</th>
+                                <th>Split</th>
+                                <th class="text-end">Amount</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var expense in group.Expenses)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@expense.Date.ToString("dd MMM yyyy")</td>
+                                    <td>
+                                        <details>
+                                            <summary>@expense.Description</summary>
+                                            <ul class="small text-muted mb-0 mt-1">
+                                                @foreach (var share in expense.Shares)
+                                                {
+                                                    <li>@share.DisplayName owes @MoneyFormat.Inr(share.ShareAmount)</li>
+                                                }
+                                            </ul>
+                                        </details>
+                                    </td>
+                                    <td>@expense.PaidByDisplayName</td>
+                                    <td><span class="badge text-bg-light">@SplitLabel(expense.SplitType)</span></td>
+                                    <td class="text-end fw-semibold">@MoneyFormat.Inr(expense.Amount)</td>
+                                    <td class="text-end text-nowrap">
+                                        @if (expense.PaidByUserId == userId)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary"
+                                               href="groups/@group.Id/expenses/@expense.Id/edit">Edit</a>
+                                            <button class="btn btn-sm btn-outline-danger" disabled="@busy"
+                                                    @onclick="() => DeleteExpenseAsync(expense.Id)">Delete</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid GroupId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private GroupDetailDto? group;
+    private IReadOnlyList<string> loadErrors = [];
+    private IReadOnlyList<string> addMemberErrors = [];
+    private IReadOnlyList<string> expenseErrors = [];
+    private string? addMemberSuccess;
+    private NewMemberModel newMember = new();
+    private bool busy;
+    private string userId = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var auth = await AuthState!;
+        userId = auth.User.GetUserId();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await Sender.Send(new GetGroupDetailQuery(GroupId, userId));
+        if (result.Succeeded)
+        {
+            group = result.Value;
+            loadErrors = [];
+        }
+        else
+        {
+            group = null;
+            loadErrors = result.Errors;
+        }
+    }
+
+    private async Task AddMemberAsync()
+    {
+        busy = true;
+        addMemberSuccess = null;
+        try
+        {
+            var result = await Sender.Send(new AddMemberCommand(GroupId, newMember.Email, userId));
+            if (result.Succeeded)
+            {
+                addMemberErrors = [];
+                addMemberSuccess = $"{newMember.Email.Trim()} added to the group.";
+                newMember = new NewMemberModel();
+                await LoadAsync();
+            }
+            else
+            {
+                addMemberErrors = result.Errors;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task DeleteExpenseAsync(Guid expenseId)
+    {
+        var confirmed = await Js.InvokeAsync<bool>("confirm", "Delete this expense? This cannot be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = await Sender.Send(new DeleteExpenseCommand(expenseId, userId));
+            expenseErrors = result.Succeeded ? [] : result.Errors;
+            if (result.Succeeded)
+            {
+                await LoadAsync();
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string SplitLabel(SplitType splitType) => splitType switch
+    {
+        SplitType.Equal => "Equal",
+        SplitType.ExactAmounts => "Exact amounts",
+        SplitType.Percentage => "Percentage",
+        _ => splitType.ToString()
+    };
+
+    private sealed class NewMemberModel
+    {
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+        public string Email { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,123 @@
+@page "/groups/{GroupId:guid}/balances"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Globalization
+@using MediatR
+@using SplitMate.Application.Balances
+@inject ISender Sender
+
+<PageTitle>Balances - SplitMate</PageTitle>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
+        <li class="breadcrumb-item"><a href="groups/@GroupId">@(balances?.GroupName ?? "Group")</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Balances</li>
+    </ol>
+</nav>
+
+<h1>Balances</h1>
+
+<ErrorList Errors="errors" />
+
+@if (balances is null && errors.Count == 0)
+{
+    <p><em>Loading…</em></p>
+}
+else if (balances is not null)
+{
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <h2 class="h4">Net balances</h2>
+            <ul class="list-group">
+                @foreach (var member in balances.MemberBalances)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>@member.DisplayName</span>
+                        @if (member.NetBalance > 0)
+                        {
+                            <span class="text-success fw-semibold">gets back @MoneyFormat.Inr(member.NetBalance)</span>
+                        }
+                        else if (member.NetBalance < 0)
+                        {
+                            <span class="text-danger fw-semibold">owes @MoneyFormat.Inr(-member.NetBalance)</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">settled up</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <div class="col-lg-7">
+            <h2 class="h4">Suggested settlements</h2>
+            @if (balances.SimplifiedDebts.Count == 0)
+            {
+                <p class="text-muted">Everyone is settled up. 🎉</p>
+            }
+            else
+            {
+                <p class="text-muted small">
+                    Simplified with at most @(balances.MemberBalances.Count - 1) payments.
+                </p>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="text-end">Amount</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var debt in balances.SimplifiedDebts)
+                            {
+                                <tr>
+                                    <td class="text-danger">@debt.FromDisplayName</td>
+                                    <td class="text-success">@debt.ToDisplayName</td>
+                                    <td class="text-end fw-semibold">@MoneyFormat.Inr(debt.Amount)</td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-primary" href="@SettleUrl(debt)">Settle up</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid GroupId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private GroupBalancesDto? balances;
+    private IReadOnlyList<string> errors = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var auth = await AuthState!;
+        var result = await Sender.Send(new GetGroupBalancesQuery(GroupId, auth.User.GetUserId()));
+        if (result.Succeeded)
+        {
+            balances = result.Value;
+            errors = [];
+        }
+        else
+        {
+            balances = null;
+            errors = result.Errors;
+        }
+    }
+
+    private string SettleUrl(SimplifiedDebtDto debt) =>
+        $"groups/{GroupId}/settle" +
+        $"?from={Uri.EscapeDataString(debt.FromUserId)}" +
+        $"&to={Uri.EscapeDataString(debt.ToUserId)}" +
+        $"&amount={debt.Amount.ToString(CultureInfo.InvariantCulture)}";
+}

@@ -1,0 +1,19 @@
+## .NET build artifacts
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+_ReSharper*/
+.idea/
+
+## Test results
+TestResults/
+*.trx
+
+## Misc
+*.log

@@ -1,0 +1,238 @@
+@page "/groups/{GroupId:guid}/expenses/new"
+@page "/groups/{GroupId:guid}/expenses/{ExpenseId:guid}/edit"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using MediatR
+@using SplitMate.Application.Expenses
+@using SplitMate.Application.Groups
+@using SplitMate.Domain.Enums
+@inject ISender Sender
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsEdit ? "Edit expense" : "Add expense") - SplitMate</PageTitle>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
+        <li class="breadcrumb-item"><a href="groups/@GroupId">@(group?.Name ?? "Group")</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@(IsEdit ? "Edit expense" : "Add expense")</li>
+    </ol>
+</nav>
+
+<h1>@(IsEdit ? "Edit expense" : "Add expense")</h1>
+
+<ErrorList Errors="errors" />
+
+@if (group is null && errors.Count == 0)
+{
+    <p><em>Loading…</em></p>
+}
+else if (group is not null)
+{
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="expense-form">
+        <DataAnnotationsValidator />
+        <div class="row g-3" style="max-width: 720px">
+            <div class="col-12">
+                <label class="form-label" for="description">Description</label>
+                <InputText id="description" @bind-Value="model.Description" class="form-control" placeholder="e.g. Dinner at beach shack" />
+                <ValidationMessage For="() => model.Description" class="text-danger" />
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="amount">Amount (₹)</label>
+                <InputNumber id="amount" @bind-Value="model.Amount" class="form-control" step="0.01" />
+                <ValidationMessage For="() => model.Amount" class="text-danger" />
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="date">Date</label>
+                <InputDate id="date" @bind-Value="model.Date" class="form-control" />
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="paid-by">Paid by</label>
+                <InputSelect id="paid-by" @bind-Value="model.PaidByUserId" class="form-select">
+                    @foreach (var member in group.Members)
+                    {
+                        <option value="@member.UserId">@member.DisplayName</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="split-type">Split type</label>
+                <InputSelect id="split-type" @bind-Value="model.SplitType" class="form-select">
+                    <option value="@SplitType.Equal">Equal</option>
+                    <option value="@SplitType.ExactAmounts">Exact amounts</option>
+                    <option value="@SplitType.Percentage">Percentage</option>
+                </InputSelect>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Split between</label>
+                <table class="table table-sm align-middle" style="max-width: 480px">
+                    <tbody>
+                        @foreach (var row in model.Rows)
+                        {
+                            <tr>
+                                <td style="width: 2rem">
+                                    <input type="checkbox" class="form-check-input" id="row-@row.UserId"
+                                           checked="@row.Included"
+                                           @onchange="e => row.Included = (bool)e.Value!" />
+                                </td>
+                                <td><label class="form-check-label" for="row-@row.UserId">@row.DisplayName</label></td>
+                                <td style="width: 11rem">
+                                    @if (model.SplitType != SplitType.Equal)
+                                    {
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">@(model.SplitType == SplitType.Percentage ? "%" : "₹")</span>
+                                            <InputNumber @bind-Value="row.Value" class="form-control"
+                                                         disabled="@(!row.Included)" step="0.01" />
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (model.SplitType == SplitType.ExactAmounts)
+                {
+                    <div class="form-text">Exact shares must add up to the expense amount.</div>
+                }
+                else if (model.SplitType == SplitType.Percentage)
+                {
+                    <div class="form-text">Percentages must add up to 100.</div>
+                }
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary" disabled="@busy">
+                    @(IsEdit ? "Save changes" : "Add expense")
+                </button>
+                <a class="btn btn-outline-secondary" href="groups/@GroupId">Cancel</a>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid GroupId { get; set; }
+    [Parameter] public Guid? ExpenseId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool IsEdit => ExpenseId.HasValue;
+
+    private GroupDetailDto? group;
+    private FormModel model = new();
+    private IReadOnlyList<string> errors = [];
+    private bool busy;
+    private string userId = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var auth = await AuthState!;
+        userId = auth.User.GetUserId();
+
+        var result = await Sender.Send(new GetGroupDetailQuery(GroupId, userId));
+        if (!result.Succeeded)
+        {
+            errors = result.Errors;
+            return;
+        }
+
+        group = result.Value!;
+        model = new FormModel
+        {
+            PaidByUserId = userId,
+            Date = DateOnly.FromDateTime(DateTime.Today),
+            Rows = group.Members
+                .Select(m => new ParticipantRow { UserId = m.UserId, DisplayName = m.DisplayName, Included = true })
+                .ToList()
+        };
+
+        if (IsEdit)
+        {
+            var expense = group.Expenses.FirstOrDefault(e => e.Id == ExpenseId);
+            if (expense is null)
+            {
+                errors = ["Expense not found in this group."];
+                group = null;
+                return;
+            }
+
+            model.Description = expense.Description;
+            model.Amount = expense.Amount;
+            model.PaidByUserId = expense.PaidByUserId;
+            model.Date = expense.Date;
+            model.SplitType = expense.SplitType;
+            foreach (var row in model.Rows)
+            {
+                var share = expense.Shares.FirstOrDefault(s => s.UserId == row.UserId);
+                row.Included = share is not null;
+                // Percentages are not stored, so they are derived from the share
+                // amounts on edit and may need a small manual adjustment to hit 100.
+                row.Value = share is null ? null : expense.SplitType switch
+                {
+                    SplitType.ExactAmounts => share.ShareAmount,
+                    SplitType.Percentage when expense.Amount != 0 =>
+                        Math.Round(share.ShareAmount / expense.Amount * 100m, 2),
+                    _ => null
+                };
+            }
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        try
+        {
+            var participants = model.Rows
+                .Where(r => r.Included)
+                .Select(r => new SplitParticipantInput(
+                    r.UserId, model.SplitType == SplitType.Equal ? null : r.Value))
+                .ToList();
+
+            Result result = IsEdit
+                ? await Sender.Send(new UpdateExpenseCommand(
+                    ExpenseId!.Value, GroupId, model.Description, model.Amount, model.PaidByUserId,
+                    model.Date, model.SplitType, participants, userId))
+                : await Sender.Send(new CreateExpenseCommand(
+                    GroupId, model.Description, model.Amount, model.PaidByUserId,
+                    model.Date, model.SplitType, participants, userId));
+
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo($"groups/{GroupId}");
+            }
+            else
+            {
+                errors = result.Errors;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private sealed class FormModel
+    {
+        [Required(ErrorMessage = "Description is required.")]
+        [StringLength(200)]
+        public string Description { get; set; } = string.Empty;
+
+        [Range(0.01, 100_000_000, ErrorMessage = "Amount must be greater than zero.")]
+        public decimal Amount { get; set; }
+
+        public string PaidByUserId { get; set; } = string.Empty;
+        public DateOnly Date { get; set; }
+        public SplitType SplitType { get; set; } = SplitType.Equal;
+        public List<ParticipantRow> Rows { get; set; } = [];
+    }
+
+    private sealed class ParticipantRow
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public bool Included { get; set; }
+        public decimal? Value { get; set; }
+    }
+}

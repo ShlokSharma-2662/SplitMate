@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "splitmate-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/SplitMate.Web", "--launch-profile", "http"],
+      "port": 5188,
+      "autoPort": false
+    }
+  ]
+}

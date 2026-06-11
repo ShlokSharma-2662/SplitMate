@@ -1,0 +1,84 @@
+@page "/"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using MediatR
+@using SplitMate.Application.Dashboard
+@inject ISender Sender
+
+<PageTitle>Dashboard - SplitMate</PageTitle>
+
+<h1>Dashboard</h1>
+
+<ErrorList Errors="errors" />
+
+@if (summary is null && errors.Count == 0)
+{
+    <p><em>Loading…</em></p>
+}
+else if (summary is not null)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-4">
+            <div class="card border-danger h-100">
+                <div class="card-body">
+                    <h6 class="card-subtitle text-muted mb-2">Total you owe</h6>
+                    <span class="fs-3 fw-bold text-danger">@MoneyFormat.Inr(summary.TotalIOwe)</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <h6 class="card-subtitle text-muted mb-2">Total you are owed</h6>
+                    <span class="fs-3 fw-bold text-success">@MoneyFormat.Inr(summary.TotalIAmOwed)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h4">Recent activity</h2>
+    @if (summary.RecentActivity.Count == 0)
+    {
+        <p class="text-muted">No activity yet. <a href="groups">Create a group</a> and add an expense to get started.</p>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var item in summary.RecentActivity)
+            {
+                <a href="groups/@item.GroupId" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge @(item.Type == ActivityType.Expense ? "text-bg-primary" : "text-bg-secondary") me-2">
+                            @(item.Type == ActivityType.Expense ? "Expense" : "Settlement")
+                        </span>
+                        <strong>@item.Title</strong>
+                        <span class="text-muted">— @item.Subtitle</span>
+                        <div class="small text-muted">@item.GroupName · @item.Date.ToString("dd MMM yyyy")</div>
+                    </div>
+                    <span class="fw-semibold">@MoneyFormat.Inr(item.Amount)</span>
+                </a>
+            }
+        </div>
+    }
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private DashboardSummaryDto? summary;
+    private IReadOnlyList<string> errors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState!;
+        var result = await Sender.Send(new GetDashboardSummaryQuery(auth.User.GetUserId()));
+        if (result.Succeeded)
+        {
+            summary = result.Value;
+        }
+        else
+        {
+            errors = result.Errors;
+        }
+    }
+}

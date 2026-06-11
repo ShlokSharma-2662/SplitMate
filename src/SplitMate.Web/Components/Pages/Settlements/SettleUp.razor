@@ -1,0 +1,148 @@
+@page "/groups/{GroupId:guid}/settle"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using MediatR
+@using SplitMate.Application.Groups
+@using SplitMate.Application.Settlements
+@inject ISender Sender
+@inject NavigationManager Navigation
+
+<PageTitle>Settle up - SplitMate</PageTitle>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
+        <li class="breadcrumb-item"><a href="groups/@GroupId">@(group?.Name ?? "Group")</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Settle up</li>
+    </ol>
+</nav>
+
+<h1>Settle up</h1>
+<p class="text-muted">Record a repayment between two members. You can lower the amount for a partial settlement.</p>
+
+<ErrorList Errors="errors" />
+
+@if (group is null && errors.Count == 0)
+{
+    <p><em>Loading…</em></p>
+}
+else if (group is not null)
+{
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="settle-up">
+        <DataAnnotationsValidator />
+        <div class="row g-3" style="max-width: 560px">
+            <div class="col-sm-6">
+                <label class="form-label" for="from">Who paid</label>
+                <InputSelect id="from" @bind-Value="model.FromUserId" class="form-select">
+                    @foreach (var member in group.Members)
+                    {
+                        <option value="@member.UserId">@member.DisplayName</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="to">Who received</label>
+                <InputSelect id="to" @bind-Value="model.ToUserId" class="form-select">
+                    @foreach (var member in group.Members)
+                    {
+                        <option value="@member.UserId">@member.DisplayName</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="amount">Amount (₹)</label>
+                <InputNumber id="amount" @bind-Value="model.Amount" class="form-control" step="0.01" />
+                <ValidationMessage For="() => model.Amount" class="text-danger" />
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="date">Date</label>
+                <InputDate id="date" @bind-Value="model.Date" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="note">Note (optional)</label>
+                <InputText id="note" @bind-Value="model.Note" class="form-control" placeholder="e.g. Paid via UPI" />
+                <ValidationMessage For="() => model.Note" class="text-danger" />
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary" disabled="@busy">Record settlement</button>
+                <a class="btn btn-outline-secondary" href="groups/@GroupId/balances">Cancel</a>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid GroupId { get; set; }
+    [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
+    [SupplyParameterFromQuery(Name = "to")] public string? To { get; set; }
+    [SupplyParameterFromQuery(Name = "amount")] public decimal? Amount { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private GroupDetailDto? group;
+    private FormModel model = new();
+    private IReadOnlyList<string> errors = [];
+    private bool busy;
+    private string userId = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var auth = await AuthState!;
+        userId = auth.User.GetUserId();
+
+        var result = await Sender.Send(new GetGroupDetailQuery(GroupId, userId));
+        if (!result.Succeeded)
+        {
+            errors = result.Errors;
+            return;
+        }
+
+        group = result.Value!;
+        model = new FormModel
+        {
+            // Pre-filled from the suggested debt; defaults to "I pay" otherwise.
+            FromUserId = From ?? userId,
+            ToUserId = To ?? group.Members.Select(m => m.UserId).FirstOrDefault(id => id != userId) ?? string.Empty,
+            Amount = Amount ?? 0m,
+            Date = DateOnly.FromDateTime(DateTime.Today)
+        };
+    }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        try
+        {
+            var result = await Sender.Send(new CreateSettlementCommand(
+                GroupId, model.FromUserId, model.ToUserId, model.Amount,
+                model.Date, model.Note, userId));
+
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo($"groups/{GroupId}/balances");
+            }
+            else
+            {
+                errors = result.Errors;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private sealed class FormModel
+    {
+        public string FromUserId { get; set; } = string.Empty;
+        public string ToUserId { get; set; } = string.Empty;
+
+        [Range(0.01, 100_000_000, ErrorMessage = "Amount must be greater than zero.")]
+        public decimal Amount { get; set; }
+
+        public DateOnly Date { get; set; }
+
+        [StringLength(200)]
+        public string? Note { get; set; }
+    }
+}
