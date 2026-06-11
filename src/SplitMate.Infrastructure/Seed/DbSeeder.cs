@@ -10,18 +10,24 @@ using SplitMate.Infrastructure.Persistence;
 namespace SplitMate.Infrastructure.Seed;
 
 /// <summary>
-/// Seeds 3 demo users, 1 demo group and 4 expenses so the app is demonstrable
-/// immediately after first run. Idempotent: skipped when any user already exists.
+/// Applies pending migrations and optionally seeds 3 demo users, 1 demo group and
+/// 4 expenses so the app is demonstrable immediately after first run.
+/// Idempotent: demo seeding is skipped when any user already exists.
 /// </summary>
 public static class DbSeeder
 {
     public const string DemoPassword = "Demo@Pass1";
 
-    public static async Task SeedAsync(IServiceProvider services)
+    public static async Task SeedAsync(IServiceProvider services, bool seedDemoData)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SplitMateDbContext>();
         await db.Database.MigrateAsync();
+
+        if (!seedDemoData)
+        {
+            return;
+        }
 
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
         if (await userManager.Users.AnyAsync())

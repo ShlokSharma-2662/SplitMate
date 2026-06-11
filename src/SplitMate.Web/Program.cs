@@ -42,12 +42,14 @@ builder.Services.AddSingleton<IEmailSender<AppUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();
 
+// Applies pending migrations on every start; demo users/group/expenses are seeded
+// only when SeedDemoData is true (enabled in appsettings.Development.json).
+await DbSeeder.SeedAsync(app.Services, app.Configuration.GetValue<bool>("SeedDemoData"));
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
-    // Applies pending migrations and seeds the demo users/group/expenses on first run.
-    await DbSeeder.SeedAsync(app.Services);
 }
 else
 {
