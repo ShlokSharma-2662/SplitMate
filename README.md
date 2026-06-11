@@ -1,5 +1,7 @@
 # SplitMate
 
+[![CI](https://github.com/ShlokSharma-2662/SplitMate/actions/workflows/ci.yml/badge.svg)](https://github.com/ShlokSharma-2662/SplitMate/actions/workflows/ci.yml)
+
 A Splitwise-style expense-splitting web app: create groups, add expenses with
 flexible splits, see who owes whom, and settle up with the minimum fuss.
 Single currency: **INR (₹)** — all money is `decimal`, never floating point.
