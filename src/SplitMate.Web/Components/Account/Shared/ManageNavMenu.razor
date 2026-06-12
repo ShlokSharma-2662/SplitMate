@@ -3,32 +3,18 @@
 
 @inject SignInManager<AppUser> SignInManager
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email">Email</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Password</NavLink>
-    </li>
+<MudNavMenu Class="mud-width-full" Color="Color.Primary" Bordered="false">
+    <MudNavLink href="Account/Manage" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Person">Profile</MudNavLink>
+    <MudNavLink href="Account/Manage/Email" Icon="@Icons.Material.Filled.Email">Email</MudNavLink>
+    <MudNavLink href="Account/Manage/ChangePassword" Icon="@Icons.Material.Filled.Lock">Password</MudNavLink>
     @if (hasExternalLogins)
     {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
-        </li>
+        <MudNavLink href="Account/Manage/ExternalLogins" Icon="@Icons.Material.Filled.Login">External Logins</MudNavLink>
     }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData">Personal data</NavLink>
-    </li>
-</ul>
+    <MudNavLink href="Account/Manage/TwoFactorAuthentication" Icon="@Icons.Material.Filled.Security">Two-Factor Auth</MudNavLink>
+    <MudNavLink href="Account/Manage/Passkeys" Icon="@Icons.Material.Filled.VpnKey">Passkeys</MudNavLink>
+    <MudNavLink href="Account/Manage/PersonalData" Icon="@Icons.Material.Filled.DeleteForever">Personal Data</MudNavLink>
+</MudNavMenu>
 
 @code {
     private bool hasExternalLogins;

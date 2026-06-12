@@ -8,121 +8,173 @@
 @using SplitMate.Domain.Enums
 @inject ISender Sender
 @inject IJSRuntime Js
+@inject ISnackbar Snackbar
 
 <PageTitle>@(group?.Name ?? "Group") - SplitMate</PageTitle>
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
-        <li class="breadcrumb-item active" aria-current="page">@(group?.Name ?? "…")</li>
-    </ol>
-</nav>
+<div class="mb-4">
+    <MudBreadcrumbs Items="_breadcrumbs" Separator=">" Class="pa-0" />
+</div>
 
 <ErrorList Errors="loadErrors" />
 
 @if (group is null && loadErrors.Count == 0)
 {
-    <p><em>Loading…</em></p>
+    <div class="d-flex justify-center my-8">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
 }
 else if (group is not null)
 {
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h1 class="mb-0">@group.Name</h1>
-        <div>
-            <a class="btn btn-outline-primary" href="groups/@group.Id/balances">View balances</a>
-            <a class="btn btn-primary" href="groups/@group.Id/expenses/new">Add expense</a>
+    <div class="d-flex flex-wrap justify-space-between align-center mb-6 gap-4">
+        <MudText Typo="Typo.h4" Class="fw-bold">@group.Name</MudText>
+        <div class="d-flex gap-2">
+            <MudButton href="@($"groups/{group.Id}/balances")" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AccountBalanceWallet">
+                View Balances
+            </MudButton>
+            <MudButton href="@($"groups/{group.Id}/expenses/new")" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddCard">
+                Add Expense
+            </MudButton>
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header">Members (@group.Members.Count)</div>
-                <ul class="list-group list-group-flush">
-                    @foreach (var member in group.Members)
-                    {
-                        <li class="list-group-item">
-                            <strong>@member.DisplayName</strong>
-                            <div class="small text-muted">@member.Email</div>
-                        </li>
-                    }
-                </ul>
-                <div class="card-body border-top">
-                    <h3 class="h6">Add member by email</h3>
+    <MudGrid>
+        <MudItem xs="12" lg="4">
+            <MudCard Elevation="1" Class="mb-6">
+                <MudCardHeader Class="pb-2">
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Class="fw-semibold">Members (@group.Members.Count)</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="pa-0">
+                    <MudList T="GroupMemberDto">
+                        @foreach (var member in group.Members)
+                        {
+                            <MudListItem Icon="@Icons.Material.Filled.Person" IconColor="Color.Secondary">
+                                <div class="d-flex flex-column">
+                                    <MudText Typo="Typo.body1" Class="fw-medium">@member.DisplayName</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@member.Email</MudText>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                        }
+                    </MudList>
+                </MudCardContent>
+                <MudCardContent Class="border-top pa-4">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2 fw-semibold">Add member by email</MudText>
                     <ErrorList Errors="addMemberErrors" />
-                    @if (addMemberSuccess is not null)
-                    {
-                        <div class="alert alert-success py-2">@addMemberSuccess</div>
-                    }
+                    
                     <EditForm Model="newMember" OnValidSubmit="AddMemberAsync" FormName="add-member">
                         <DataAnnotationsValidator />
-                        <div class="input-group">
-                            <InputText @bind-Value="newMember.Email" class="form-control" placeholder="friend@example.com" />
-                            <button type="submit" class="btn btn-outline-primary" disabled="@busy">Add</button>
+                        <div class="d-flex align-start gap-2 mt-2 w-100">
+                            <div class="flex-grow-1">
+                                <MudTextField @bind-Value="newMember.Email" 
+                                              Label="Email Address" 
+                                              Placeholder="friend@example.com" 
+                                              Variant="Variant.Outlined" 
+                                              Margin="Margin.Dense" 
+                                              For="() => newMember.Email" />
+                            </div>
+                            <MudButton ButtonType="ButtonType.Submit" 
+                                       Variant="Variant.Filled" 
+                                       Color="Color.Primary" 
+                                       Disabled="@busy" 
+                                       Class="mt-1">
+                                @if (busy)
+                                {
+                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                    <span class="ms-2">Adding...</span>
+                                }
+                                else
+                                {
+                                    <span>Add</span>
+                                }
+                            </MudButton>
                         </div>
-                        <ValidationMessage For="() => newMember.Email" class="text-danger" />
                     </EditForm>
-                </div>
-            </div>
-        </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
 
-        <div class="col-lg-8">
-            <h2 class="h4">Expenses</h2>
-            <ErrorList Errors="expenseErrors" />
-            @if (group.Expenses.Count == 0)
-            {
-                <p class="text-muted">No expenses yet. Add the first one!</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Description</th>
-                                <th>Paid by</th>
-                                <th>Split</th>
-                                <th class="text-end">Amount</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var expense in group.Expenses)
-                            {
+        <MudItem xs="12" lg="8">
+            <MudCard Elevation="1">
+                <MudCardHeader Class="pb-2">
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Class="fw-semibold">Expenses</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <ErrorList Errors="expenseErrors" />
+                    
+                    @if (group.Expenses.Count == 0)
+                    {
+                        <div class="text-center py-6">
+                            <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Color="Color.Default" Class="mb-2" />
+                            <MudText Typo="Typo.body1" Class="mud-text-secondary mb-3">No expenses yet. Add the first one!</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Hover="true" Striped="false" Style="overflow-x: auto;">
+                            <thead>
                                 <tr>
-                                    <td class="text-nowrap">@expense.Date.ToString("dd MMM yyyy")</td>
-                                    <td>
-                                        <details>
-                                            <summary>@expense.Description</summary>
-                                            <ul class="small text-muted mb-0 mt-1">
-                                                @foreach (var share in expense.Shares)
-                                                {
-                                                    <li>@share.DisplayName owes @MoneyFormat.Inr(share.ShareAmount)</li>
-                                                }
-                                            </ul>
-                                        </details>
-                                    </td>
-                                    <td>@expense.PaidByDisplayName</td>
-                                    <td><span class="badge text-bg-light">@SplitLabel(expense.SplitType)</span></td>
-                                    <td class="text-end fw-semibold">@MoneyFormat.Inr(expense.Amount)</td>
-                                    <td class="text-end text-nowrap">
-                                        @if (expense.PaidByUserId == userId)
-                                        {
-                                            <a class="btn btn-sm btn-outline-secondary"
-                                               href="groups/@group.Id/expenses/@expense.Id/edit">Edit</a>
-                                            <button class="btn btn-sm btn-outline-danger" disabled="@busy"
-                                                    @onclick="() => DeleteExpenseAsync(expense.Id)">Delete</button>
-                                        }
-                                    </td>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Paid by</th>
+                                    <th>Split</th>
+                                    <th class="text-right">Amount</th>
+                                    <th class="text-right">Actions</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-    </div>
+                            </thead>
+                            <tbody>
+                                @foreach (var expense in group.Expenses)
+                                {
+                                    <tr>
+                                        <td class="text-nowrap">@expense.Date.ToString("dd MMM yyyy")</td>
+                                        <td>
+                                            <details>
+                                                <summary class="fw-medium text-primary" style="cursor: pointer;">@expense.Description</summary>
+                                                <div class="mt-2 pa-2 mud-background-gray rounded">
+                                                    @foreach (var share in expense.Shares)
+                                                    {
+                                                        <div class="d-flex justify-space-between py-1">
+                                                            <MudText Typo="Typo.caption">@share.DisplayName</MudText>
+                                                            <MudText Typo="Typo.caption" Class="fw-semibold">@MoneyFormat.Inr(share.ShareAmount)</MudText>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </details>
+                                        </td>
+                                        <td>@expense.PaidByDisplayName</td>
+                                        <td>
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">
+                                                @SplitLabel(expense.SplitType)
+                                            </MudChip>
+                                        </td>
+                                        <td class="text-right fw-semibold">@MoneyFormat.Inr(expense.Amount)</td>
+                                        <td class="text-right text-nowrap">
+                                            @if (expense.PaidByUserId == userId)
+                                            {
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                                               Size="Size.Small" 
+                                                               Color="Color.Default" 
+                                                               href="@($"groups/{group.Id}/expenses/{expense.Id}/edit")" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                               Size="Size.Small" 
+                                                               Color="Color.Error" 
+                                                               Disabled="@busy" 
+                                                               OnClick="() => DeleteExpenseAsync(expense.Id)" />
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
 }
 
 @code {
@@ -133,10 +185,15 @@ else if (group is not null)
     private IReadOnlyList<string> loadErrors = [];
     private IReadOnlyList<string> addMemberErrors = [];
     private IReadOnlyList<string> expenseErrors = [];
-    private string? addMemberSuccess;
     private NewMemberModel newMember = new();
     private bool busy;
     private string userId = string.Empty;
+
+    private List<BreadcrumbItem> _breadcrumbs => new()
+    {
+        new BreadcrumbItem("My Groups", href: "groups"),
+        new BreadcrumbItem(group?.Name ?? "Group Details", href: null, disabled: true)
+    };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -163,14 +220,13 @@ else if (group is not null)
     private async Task AddMemberAsync()
     {
         busy = true;
-        addMemberSuccess = null;
         try
         {
             var result = await Sender.Send(new AddMemberCommand(GroupId, newMember.Email, userId));
             if (result.Succeeded)
             {
                 addMemberErrors = [];
-                addMemberSuccess = $"{newMember.Email.Trim()} added to the group.";
+                Snackbar.Add($"{newMember.Email.Trim()} successfully added to the group!", Severity.Success);
                 newMember = new NewMemberModel();
                 await LoadAsync();
             }
@@ -200,6 +256,7 @@ else if (group is not null)
             expenseErrors = result.Succeeded ? [] : result.Errors;
             if (result.Succeeded)
             {
+                Snackbar.Add("Expense deleted successfully.", Severity.Success);
                 await LoadAsync();
             }
         }

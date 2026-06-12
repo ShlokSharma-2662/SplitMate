@@ -11,63 +11,98 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Log in</PageTitle>
+<PageTitle>Sign In</PageTitle>
 
-<h1>Log in</h1>
-<div class="row">
-    <div class="col-lg-6">
-        <section>
+<div class="auth-container">
+    <!-- Left Panel: Brand Hero -->
+    <div class="auth-sidebar">
+        <div class="auth-sidebar-brand">
+            SplitMate
+        </div>
+        <div class="auth-sidebar-body">
+            <div class="auth-sidebar-tagline">
+                Track expenses,<br />settle balances,<br />keep the peace.
+            </div>
+            <div class="auth-sidebar-desc">
+                Simplifying shared expenses with friends, family, and roommates. Track who owes what and settle up instantly.
+            </div>
+            <ul class="auth-features">
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Quickly split bills and add items on the go
+                </li>
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Real-time net balance calculations
+                </li>
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Settle up dynamically across groups
+                </li>
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Secure authentication with password & Passkeys
+                </li>
+            </ul>
+        </div>
+        <div class="auth-sidebar-footer">
+            © 2026 SplitMate. Built for stress-free splitting.
+        </div>
+    </div>
+
+    <!-- Right Panel: Auth Form -->
+    <div class="auth-content">
+        <div class="auth-card">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold" style="font-size: 1.5rem; margin-top: 0;">Sign In</h2>
+                <span style="color: var(--mud-palette-text-secondary); font-size: 0.9rem;">Access your SplitMate account</span>
+            </div>
+
             <StatusMessage Message="@errorMessage" />
+
             <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
                 <DataAnnotationsValidator />
-                <h2>Use a local account to log in.</h2>
-                <hr />
-                <ValidationSummary class="text-danger" role="alert" />
-                <div class="form-floating mb-3">
+                
+                <div class="mb-4">
+                    <label for="Input.Email" class="form-label">Email Address</label>
                     <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
-                    <label for="Input.Email" class="form-label">Email</label>
                     <ValidationMessage For="() => Input.Email" class="text-danger" />
                 </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
+
+                <div class="mb-4">
                     <label for="Input.Password" class="form-label">Password</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="••••••••" />
                     <ValidationMessage For="() => Input.Password" class="text-danger" />
                 </div>
-                <div class="checkbox mb-3">
-                    <label class="form-label">
-                        <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
+
+                <div class="mb-4">
+                    <label class="checkbox-container">
+                        <InputCheckbox @bind-Value="Input.RememberMe" />
                         Remember me
                     </label>
                 </div>
-                <div>
-                    <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
+
+                <div class="mb-4">
+                    <button type="submit" class="btn-primary">Sign In</button>
                 </div>
-                <hr />
-                <div class="d-flex flex-column">
-                    <span class="text-secondary mx-auto mt-2">OR</span>
-                    <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="btn btn-link mx-auto">Log in with a passkey</PasskeySubmit>
+
+                <div class="text-center mb-4" style="color: var(--mud-palette-text-disabled, #A0AEC0); font-size: 0.85rem;">
+                    <span>— OR —</span>
                 </div>
-                <hr />
-                <div>
-                    <p>
-                        <a href="Account/ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Register as a new user</a>
-                    </p>
-                    <p>
-                        <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
-                    </p>
+
+                <div class="mb-4 text-center">
+                    <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="btn-passkey">
+                        Sign in with a Passkey
+                    </PasskeySubmit>
+                </div>
+
+                <div class="auth-footer-links">
+                    <a href="Account/ForgotPassword">Forgot your password?</a>
+                    <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Create an account</a>
+                    <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
                 </div>
             </EditForm>
-        </section>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
+        </div>
     </div>
 </div>
 

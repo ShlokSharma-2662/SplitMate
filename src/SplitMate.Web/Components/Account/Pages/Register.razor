@@ -17,45 +17,89 @@
 
 <PageTitle>Register</PageTitle>
 
-<h1>Register</h1>
-
-<div class="row">
-    <div class="col-lg-6">
-        <StatusMessage Message="@Message" />
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
-            <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.DisplayName" id="Input.DisplayName" class="form-control" autocomplete="name" aria-required="true" placeholder="Your name" />
-                <label for="Input.DisplayName">Display name</label>
-                <ValidationMessage For="() => Input.DisplayName" class="text-danger" />
+<div class="auth-container">
+    <!-- Left Panel: Brand Hero -->
+    <div class="auth-sidebar">
+        <div class="auth-sidebar-brand">
+            SplitMate
+        </div>
+        <div class="auth-sidebar-body">
+            <div class="auth-sidebar-tagline">
+                Track expenses,<br />settle balances,<br />keep the peace.
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
+            <div class="auth-sidebar-desc">
+                Simplifying shared expenses with friends, family, and roommates. Track who owes what and settle up instantly.
             </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
+            <ul class="auth-features">
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Quickly split bills and add items on the go
+                </li>
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Real-time net balance calculations
+                </li>
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Settle up dynamically across groups
+                </li>
+                <li class="auth-feature-item">
+                    <span class="auth-feature-icon">✓</span>
+                    Secure authentication with password & Passkeys
+                </li>
+            </ul>
+        </div>
+        <div class="auth-sidebar-footer">
+            © 2026 SplitMate. Built for stress-free splitting.
+        </div>
     </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
+
+    <!-- Right Panel: Auth Form -->
+    <div class="auth-content">
+        <div class="auth-card">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold" style="font-size: 1.5rem; margin-top: 0;">Create Account</h2>
+                <span style="color: var(--mud-palette-text-secondary); font-size: 0.9rem;">Join SplitMate to start splitting expenses</span>
+            </div>
+
+            <StatusMessage Message="@Message" />
+
+            <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+                <DataAnnotationsValidator />
+                
+                <div class="mb-4">
+                    <label for="Input.DisplayName" class="form-label">Display Name</label>
+                    <InputText @bind-Value="Input.DisplayName" id="Input.DisplayName" class="form-control" autocomplete="name" aria-required="true" placeholder="Aarav Sharma" />
+                    <ValidationMessage For="() => Input.DisplayName" class="text-danger" />
+                </div>
+
+                <div class="mb-4">
+                    <label for="Input.Email" class="form-label">Email Address</label>
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <ValidationMessage For="() => Input.Email" class="text-danger" />
+                </div>
+
+                <div class="mb-4">
+                    <label for="Input.Password" class="form-label">Password</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
+                    <ValidationMessage For="() => Input.Password" class="text-danger" />
+                </div>
+
+                <div class="mb-4">
+                    <label for="Input.ConfirmPassword" class="form-label">Confirm Password</label>
+                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                </div>
+
+                <div class="mb-4">
+                    <button type="submit" class="btn-primary">Register</button>
+                </div>
+
+                <div class="auth-footer-links">
+                    <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Already have an account? Sign In</a>
+                </div>
+            </EditForm>
+        </div>
     </div>
 </div>
 

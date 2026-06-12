@@ -8,88 +8,124 @@
 
 <PageTitle>Balances - SplitMate</PageTitle>
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
-        <li class="breadcrumb-item"><a href="groups/@GroupId">@(balances?.GroupName ?? "Group")</a></li>
-        <li class="breadcrumb-item active" aria-current="page">Balances</li>
-    </ol>
-</nav>
+<div class="mb-4">
+    <MudBreadcrumbs Items="_breadcrumbs" Separator=">" Class="pa-0" />
+</div>
 
-<h1>Balances</h1>
+<MudText Typo="Typo.h4" Class="mb-6 fw-bold">Balances</MudText>
 
 <ErrorList Errors="errors" />
 
 @if (balances is null && errors.Count == 0)
 {
-    <p><em>Loading…</em></p>
+    <div class="d-flex justify-center my-8">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
 }
 else if (balances is not null)
 {
-    <div class="row g-4">
-        <div class="col-lg-5">
-            <h2 class="h4">Net balances</h2>
-            <ul class="list-group">
-                @foreach (var member in balances.MemberBalances)
-                {
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>@member.DisplayName</span>
-                        @if (member.NetBalance > 0)
+    <MudGrid>
+        <MudItem xs="12" lg="5">
+            <MudCard Elevation="1">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Class="fw-semibold">Net Balances</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="pa-0">
+                    <MudList T="MemberBalanceDto">
+                        @foreach (var member in balances.MemberBalances)
                         {
-                            <span class="text-success fw-semibold">gets back @MoneyFormat.Inr(member.NetBalance)</span>
+                            <MudListItem Icon="@Icons.Material.Filled.Person" IconColor="Color.Default">
+                                <div class="d-flex justify-space-between align-center w-100 flex-wrap">
+                                    <MudText Typo="Typo.body1" Class="fw-medium">@member.DisplayName</MudText>
+                                    @if (member.NetBalance > 0)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">
+                                            gets back @MoneyFormat.Inr(member.NetBalance)
+                                        </MudChip>
+                                    }
+                                    else if (member.NetBalance < 0)
+                                    {
+                                        <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">
+                                            owes @MoneyFormat.Inr(-member.NetBalance)
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Text">
+                                            settled up
+                                        </MudChip>
+                                    }
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
                         }
-                        else if (member.NetBalance < 0)
-                        {
-                            <span class="text-danger fw-semibold">owes @MoneyFormat.Inr(-member.NetBalance)</span>
-                        }
-                        else
-                        {
-                            <span class="text-muted">settled up</span>
-                        }
-                    </li>
-                }
-            </ul>
-        </div>
+                    </MudList>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
 
-        <div class="col-lg-7">
-            <h2 class="h4">Suggested settlements</h2>
-            @if (balances.SimplifiedDebts.Count == 0)
-            {
-                <p class="text-muted">Everyone is settled up. 🎉</p>
-            }
-            else
-            {
-                <p class="text-muted small">
-                    Simplified with at most @(balances.MemberBalances.Count - 1) payments.
-                </p>
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr>
-                                <th>From</th>
-                                <th>To</th>
-                                <th class="text-end">Amount</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var debt in balances.SimplifiedDebts)
-                            {
+        <MudItem xs="12" lg="7">
+            <MudCard Elevation="1">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6" Class="fw-semibold">Suggested Settlements</MudText>
+                        @if (balances.SimplifiedDebts.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Simplified with at most @(balances.MemberBalances.Count - 1) payments.
+                            </MudText>
+                        }
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    @if (balances.SimplifiedDebts.Count == 0)
+                    {
+                        <div class="text-center py-6">
+                            <MudIcon Icon="@Icons.Material.Filled.Celebration" Size="Size.Large" Color="Color.Success" Class="mb-2" />
+                            <MudText Typo="Typo.body1" Class="mud-text-secondary">Everyone is settled up. 🎉</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Hover="true">
+                            <thead>
                                 <tr>
-                                    <td class="text-danger">@debt.FromDisplayName</td>
-                                    <td class="text-success">@debt.ToDisplayName</td>
-                                    <td class="text-end fw-semibold">@MoneyFormat.Inr(debt.Amount)</td>
-                                    <td class="text-end">
-                                        <a class="btn btn-sm btn-primary" href="@SettleUrl(debt)">Settle up</a>
-                                    </td>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th class="text-right">Amount</th>
+                                    <th class="text-right">Action</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-    </div>
+                            </thead>
+                            <tbody>
+                                @foreach (var debt in balances.SimplifiedDebts)
+                                {
+                                    <tr>
+                                        <td>
+                                            <MudText Color="Color.Error" Typo="Typo.body2" Class="fw-medium">@debt.FromDisplayName</MudText>
+                                        </td>
+                                        <td>
+                                            <MudText Color="Color.Success" Typo="Typo.body2" Class="fw-medium">@debt.ToDisplayName</MudText>
+                                        </td>
+                                        <td class="text-right fw-semibold">@MoneyFormat.Inr(debt.Amount)</td>
+                                        <td class="text-right">
+                                            <MudButton href="@SettleUrl(debt)" 
+                                                       Variant="Variant.Filled" 
+                                                       Color="Color.Primary" 
+                                                       Size="Size.Small">
+                                                Settle up
+                                            </MudButton>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
 }
 
 @code {
@@ -98,6 +134,13 @@ else if (balances is not null)
 
     private GroupBalancesDto? balances;
     private IReadOnlyList<string> errors = [];
+
+    private List<BreadcrumbItem> _breadcrumbs => new()
+    {
+        new BreadcrumbItem("My Groups", href: "groups"),
+        new BreadcrumbItem(balances?.GroupName ?? "Group", href: $"groups/{GroupId}"),
+        new BreadcrumbItem("Balances", href: null, disabled: true)
+    };
 
     protected override async Task OnParametersSetAsync()
     {

@@ -1,17 +1,18 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @layout SplitMate.Web.Components.Layout.MainLayout
 
-<h1>Manage your account</h1>
+<MudText Typo="Typo.h5" Class="mb-2 font-weight-bold">Manage Account</MudText>
+<MudText Typo="Typo.body2" Class="mb-6 text-muted">Manage your profile, email, password, and authentication settings.</MudText>
 
-<div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
+<MudGrid>
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="1" Class="pa-2">
             <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="9">
+        <MudPaper Elevation="1" Class="pa-6">
             @Body
-        </div>
-    </div>
-</div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>

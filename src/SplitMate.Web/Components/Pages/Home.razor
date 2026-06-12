@@ -7,58 +7,82 @@
 
 <PageTitle>Dashboard - SplitMate</PageTitle>
 
-<h1>Dashboard</h1>
+<MudText Typo="Typo.h4" Class="mb-6 fw-bold">Dashboard</MudText>
 
 <ErrorList Errors="errors" />
 
 @if (summary is null && errors.Count == 0)
 {
-    <p><em>Loading…</em></p>
+    <div class="d-flex justify-center my-8">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
 }
 else if (summary is not null)
 {
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-4">
-            <div class="card border-danger h-100">
-                <div class="card-body">
-                    <h6 class="card-subtitle text-muted mb-2">Total you owe</h6>
-                    <span class="fs-3 fw-bold text-danger">@MoneyFormat.Inr(summary.TotalIOwe)</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-lg-4">
-            <div class="card border-success h-100">
-                <div class="card-body">
-                    <h6 class="card-subtitle text-muted mb-2">Total you are owed</h6>
-                    <span class="fs-3 fw-bold text-success">@MoneyFormat.Inr(summary.TotalIAmOwed)</span>
-                </div>
-            </div>
-        </div>
-    </div>
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4 border-l-4 border-error" Style="border-left: 6px solid var(--mud-palette-error) !important;" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mb-1">Total you owe</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Error" Class="fw-bold">
+                    @MoneyFormat.Inr(summary.TotalIOwe)
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Style="border-left: 6px solid var(--mud-palette-success) !important;" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mb-1">Total you are owed</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Success" Class="fw-bold">
+                    @MoneyFormat.Inr(summary.TotalIAmOwed)
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Style="@($"border-left: 6px solid {(NetBalance > 0 ? "var(--mud-palette-success)" : NetBalance < 0 ? "var(--mud-palette-error)" : "var(--mud-palette-text-secondary)")} !important;")" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mb-1">Net balance</MudText>
+                <MudText Typo="Typo.h4" Class="fw-bold" Color="@(NetBalance > 0 ? Color.Success : NetBalance < 0 ? Color.Error : Color.Default)">
+                    @MoneyFormat.Inr(NetBalance)
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 
-    <h2 class="h4">Recent activity</h2>
+    <MudText Typo="Typo.h5" Class="mb-4 fw-semibold">Recent Activity</MudText>
+    
     @if (summary.RecentActivity.Count == 0)
     {
-        <p class="text-muted">No activity yet. <a href="groups">Create a group</a> and add an expense to get started.</p>
+        <MudPaper Class="pa-6 text-center" Elevation="1">
+            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Large" Color="Color.Info" Class="mb-2" />
+            <MudText Typo="Typo.body1" Class="mud-text-secondary mb-3">No activity yet.</MudText>
+            <MudButton href="groups" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">
+                Create a Group
+            </MudButton>
+        </MudPaper>
     }
     else
     {
-        <div class="list-group">
-            @foreach (var item in summary.RecentActivity)
-            {
-                <a href="groups/@item.GroupId" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="badge @(item.Type == ActivityType.Expense ? "text-bg-primary" : "text-bg-secondary") me-2">
-                            @(item.Type == ActivityType.Expense ? "Expense" : "Settlement")
-                        </span>
-                        <strong>@item.Title</strong>
-                        <span class="text-muted">— @item.Subtitle</span>
-                        <div class="small text-muted">@item.GroupName · @item.Date.ToString("dd MMM yyyy")</div>
-                    </div>
-                    <span class="fw-semibold">@MoneyFormat.Inr(item.Amount)</span>
-                </a>
-            }
-        </div>
+        <MudPaper Elevation="1">
+            <MudList T="ActivityItemDto">
+                @foreach (var item in summary.RecentActivity)
+                {
+                    <MudListItem href="@($"groups/{item.GroupId}")" Icon="@(item.Type == ActivityType.Expense ? Icons.Material.Filled.ReceiptLong : Icons.Material.Filled.Handshake)" IconColor="@(item.Type == ActivityType.Expense ? Color.Primary : Color.Secondary)">
+                        <div class="d-flex justify-space-between align-center w-100 flex-wrap">
+                            <div>
+                                <div class="d-flex align-center gap-2">
+                                    <MudText Typo="Typo.body1" Class="fw-semibold">@item.Title</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="@(item.Type == ActivityType.Expense ? Color.Primary : Color.Secondary)" Variant="Variant.Text">
+                                        @(item.Type == ActivityType.Expense ? "Expense" : "Settlement")
+                                    </MudChip>
+                                </div>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">@item.Subtitle</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@item.GroupName · @item.Date.ToString("dd MMM yyyy")</MudText>
+                            </div>
+                            <MudText Typo="Typo.body1" Class="fw-bold">@MoneyFormat.Inr(item.Amount)</MudText>
+                        </div>
+                    </MudListItem>
+                    <MudDivider />
+                }
+            </MudList>
+        </MudPaper>
     }
 }
 
@@ -67,6 +91,8 @@ else if (summary is not null)
 
     private DashboardSummaryDto? summary;
     private IReadOnlyList<string> errors = [];
+
+    private decimal NetBalance => summary is not null ? summary.TotalIAmOwed - summary.TotalIOwe : 0m;
 
     protected override async Task OnInitializedAsync()
     {

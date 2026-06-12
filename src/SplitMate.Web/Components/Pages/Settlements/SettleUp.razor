@@ -10,66 +10,103 @@
 
 <PageTitle>Settle up - SplitMate</PageTitle>
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="groups">My Groups</a></li>
-        <li class="breadcrumb-item"><a href="groups/@GroupId">@(group?.Name ?? "Group")</a></li>
-        <li class="breadcrumb-item active" aria-current="page">Settle up</li>
-    </ol>
-</nav>
+<div class="mb-4">
+    <MudBreadcrumbs Items="_breadcrumbs" Separator=">" Class="pa-0" />
+</div>
 
-<h1>Settle up</h1>
-<p class="text-muted">Record a repayment between two members. You can lower the amount for a partial settlement.</p>
+<MudText Typo="Typo.h4" Class="mb-2 fw-bold">Settle up</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-6">
+    Record a repayment between two members. You can lower the amount for a partial settlement.
+</MudText>
 
 <ErrorList Errors="errors" />
 
 @if (group is null && errors.Count == 0)
 {
-    <p><em>Loading…</em></p>
+    <div class="d-flex justify-center my-8">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
 }
 else if (group is not null)
 {
-    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="settle-up">
-        <DataAnnotationsValidator />
-        <div class="row g-3" style="max-width: 560px">
-            <div class="col-sm-6">
-                <label class="form-label" for="from">Who paid</label>
-                <InputSelect id="from" @bind-Value="model.FromUserId" class="form-select">
-                    @foreach (var member in group.Members)
-                    {
-                        <option value="@member.UserId">@member.DisplayName</option>
-                    }
-                </InputSelect>
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label" for="to">Who received</label>
-                <InputSelect id="to" @bind-Value="model.ToUserId" class="form-select">
-                    @foreach (var member in group.Members)
-                    {
-                        <option value="@member.UserId">@member.DisplayName</option>
-                    }
-                </InputSelect>
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label" for="amount">Amount (₹)</label>
-                <InputNumber id="amount" @bind-Value="model.Amount" class="form-control" step="0.01" />
-                <ValidationMessage For="() => model.Amount" class="text-danger" />
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label" for="date">Date</label>
-                <InputDate id="date" @bind-Value="model.Date" class="form-control" />
-            </div>
-            <div class="col-12">
-                <label class="form-label" for="note">Note (optional)</label>
-                <InputText id="note" @bind-Value="model.Note" class="form-control" placeholder="e.g. Paid via UPI" />
-                <ValidationMessage For="() => model.Note" class="text-danger" />
-            </div>
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary" disabled="@busy">Record settlement</button>
-                <a class="btn btn-outline-secondary" href="groups/@GroupId/balances">Cancel</a>
-            </div>
-        </div>
-    </EditForm>
+    <MudCard Elevation="1" Style="max-width: 560px;">
+        <MudCardContent>
+            <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="settle-up">
+                <DataAnnotationsValidator />
+                
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="string" @bind-Value="model.FromUserId" 
+                                   Label="Who paid" 
+                                   Variant="Variant.Outlined">
+                            @foreach (var member in group.Members)
+                            {
+                                <MudSelectItem Value="@member.UserId">@member.DisplayName</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="string" @bind-Value="model.ToUserId" 
+                                   Label="Who received" 
+                                   Variant="Variant.Outlined">
+                            @foreach (var member in group.Members)
+                            {
+                                <MudSelectItem Value="@member.UserId">@member.DisplayName</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="decimal" @bind-Value="model.Amount" 
+                                         Label="Amount" 
+                                         Adornment="Adornment.Start" 
+                                         AdornmentText="₹" 
+                                         Variant="Variant.Outlined" 
+                                         Step="0.01M"
+                                         For="() => model.Amount" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="ModelDate" 
+                                       Label="Date" 
+                                       Editable="true"
+                                       Variant="Variant.Outlined" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="model.Note" 
+                                      Label="Note (optional)" 
+                                      Placeholder="e.g. Paid via UPI" 
+                                      Variant="Variant.Outlined" 
+                                      For="() => model.Note" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" Class="d-flex gap-2 mt-4">
+                        <MudButton ButtonType="ButtonType.Submit" 
+                                   Variant="Variant.Filled" 
+                                   Color="Color.Primary" 
+                                   Disabled="@busy">
+                            @if (busy)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <span class="ms-2">Recording...</span>
+                            }
+                            else
+                            {
+                                <span>Record settlement</span>
+                            }
+                        </MudButton>
+                        <MudButton href="@($"groups/{GroupId}/balances")" 
+                                   Variant="Variant.Outlined" 
+                                   Color="Color.Secondary">
+                            Cancel
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </EditForm>
+        </MudCardContent>
+    </MudCard>
 }
 
 @code {
@@ -84,6 +121,19 @@ else if (group is not null)
     private IReadOnlyList<string> errors = [];
     private bool busy;
     private string userId = string.Empty;
+
+    private List<BreadcrumbItem> _breadcrumbs => new()
+    {
+        new BreadcrumbItem("My Groups", href: "groups"),
+        new BreadcrumbItem(group?.Name ?? "Group", href: $"groups/{GroupId}"),
+        new BreadcrumbItem("Settle up", href: null, disabled: true)
+    };
+
+    private DateTime? ModelDate
+    {
+        get => model.Date.ToDateTime(TimeOnly.MinValue);
+        set => model.Date = value.HasValue ? DateOnly.FromDateTime(value.Value) : DateOnly.FromDateTime(DateTime.Today);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -100,7 +150,6 @@ else if (group is not null)
         group = result.Value!;
         model = new FormModel
         {
-            // Pre-filled from the suggested debt; defaults to "I pay" otherwise.
             FromUserId = From ?? userId,
             ToUserId = To ?? group.Members.Select(m => m.UserId).FirstOrDefault(id => id != userId) ?? string.Empty,
             Amount = Amount ?? 0m,

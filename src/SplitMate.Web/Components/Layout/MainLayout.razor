@@ -1,23 +1,190 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IDisposable
+@inject PersistentComponentState ApplicationState
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<MudThemeProvider Theme="_theme" @bind-IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@if (IsAccountPage())
+{
+    <div class="account-layout">
+        @Body
     </div>
+}
+else
+{
+    <MudLayout>
+        <MudAppBar Elevation="1" Color="Color.Primary">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            <MudText Typo="Typo.h6" Class="ml-3">SplitMate</MudText>
+            <MudSpacer />
+            
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.WbSunny : Icons.Material.Filled.NightsStay)" 
+                           Color="Color.Inherit" 
+                           OnClick="@ToggleDarkMode" 
+                           UserAttributes="@(new() { { "onclick", "toggleStaticTheme()" } })"
+                           Class="mr-2" />
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+            <AuthorizeView Context="authContext">
+                <Authorized>
+                    <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Color="Color.Inherit">
+                        <ActivatorContent Context="menuContext">
+                            <MudButton Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.AccountCircle">
+                                @authContext.User.Identity?.Name
+                            </MudButton>
+                        </ActivatorContent>
+                        <ChildContent>
+                            <MudMenuItem href="Account/Manage">My Profile</MudMenuItem>
+                            <MudMenuItem OnClick="SubmitLogout">Logout</MudMenuItem>
+                        </ChildContent>
+                    </MudMenu>
+                    
+                    <form action="Account/Logout" method="post" id="logoutForm" style="display:none;">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@_currentUrl" />
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton href="Account/Login" Variant="Variant.Text" Color="Color.Inherit">Login</MudButton>
+                    <MudButton href="Account/Register" Variant="Variant.Text" Color="Color.Inherit">Register</MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
+        </MudAppBar>
+        
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+            <NavMenu />
+        </MudDrawer>
+        
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode;
+    private string? _currentUrl;
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#1D9E75", // Teal brand
+            Secondary = "#2B6CB0", // Slate blue
+            AppbarBackground = "#1D9E75",
+            AppbarText = "#FFFFFF",
+            Background = "#F7FAFC",
+            Surface = "#FFFFFF",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#2D3748",
+            Success = "#2F855A", // Green for owed
+            Error = "#C53030" // Red for owe
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#26C695", // Slightly brighter teal for dark mode
+            Secondary = "#4299E1",
+            Background = "#1A202C",
+            Surface = "#2D3748",
+            DrawerBackground = "#2D3748",
+            DrawerText = "#EDF2F7",
+            Success = "#48BB78",
+            Error = "#F56565"
+        },
+        LayoutProperties = new LayoutProperties()
+        {
+            DefaultBorderRadius = "8px"
+        }
+    };
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private PersistingComponentStateSubscription _subscription;
+
+    protected override void OnInitialized()
+    {
+        _currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.LocationChanged += OnLocationChanged;
+
+        _subscription = ApplicationState.RegisterOnPersisting(PersistTheme);
+
+        if (ApplicationState.TryTakeFromJson<bool>("isDarkMode", out var restoredDarkMode))
+        {
+            _isDarkMode = restoredDarkMode;
+        }
+        else if (HttpContext is not null)
+        {
+            if (HttpContext.Request.Cookies.TryGetValue("theme", out var theme))
+            {
+                _isDarkMode = theme == "dark";
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("eval", "window.isInteractive = true");
+        }
+    }
+
+    private Task PersistTheme()
+    {
+        ApplicationState.PersistAsJson("isDarkMode", _isDarkMode);
+        return Task.CompletedTask;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _currentUrl = Navigation.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+        await JS.InvokeVoidAsync("setThemeCookie", _isDarkMode ? "dark" : "light");
+    }
+
+    private async Task SubmitLogout()
+    {
+        await JS.InvokeVoidAsync("eval", "document.getElementById('logoutForm').submit()");
+    }
+
+    private bool IsAccountPage()
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (relativePath.StartsWith("Account/Manage", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        return relativePath.StartsWith("Account/", StringComparison.OrdinalIgnoreCase) ||
+               relativePath.Equals("Account", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        _subscription.Dispose();
+    }
+}

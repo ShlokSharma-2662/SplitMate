@@ -1,13 +1,13 @@
 @if (Errors is { Count: > 0 })
 {
-    <div class="alert alert-danger" role="alert">
-        <ul class="mb-0 ps-3">
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="my-4">
+        <ul class="mb-0 pl-4">
             @foreach (var error in Errors)
             {
                 <li>@error</li>
             }
         </ul>
-    </div>
+    </MudAlert>
 }
 
 @code {
