@@ -32,7 +32,9 @@ jobs:
     # Deploy only after build+test pass, and only on push to main (never on PRs).
     needs: build-and-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    # Web Deploy (simply-web-deploy) shells out to msdeploy.exe, which only
+    # exists on Windows runners — must NOT be ubuntu-latest.
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -43,12 +45,25 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # Publish the deployable web app. --runtime win-x86 matches MonsterASP's
-      # guidance and yields a self-contained build that runs regardless of the
-      # runtime installed on the host. Output goes to ./publish, which is the
-      # default source-path expected by simply-web-deploy.
+      # Publish framework-dependent/portable (no RID). This generates a
+      # bitness-agnostic web.config (processPath="dotnet") so the in-process
+      # AspNetCoreModule loads whichever coreclr matches the IIS app pool —
+      # avoiding the "failed to load coreclr" 32/64-bit mismatch that a
+      # self-contained win-x86 build caused. Relies on the .NET 10 runtime
+      # installed on MonsterASP. Output ./publish is simply-web-deploy's default.
       - name: Publish
-        run: dotnet publish src/SplitMate.Web/SplitMate.Web.csproj --configuration Release --runtime win-x86 --output ./publish
+        run: dotnet publish src/SplitMate.Web/SplitMate.Web.csproj --configuration Release --output ./publish
+
+      # Inject the production connection string from a secret into the publish
+      # output. Lives only in GitHub Secrets (never in git), and is re-written on
+      # every deploy so a deploy can never wipe it. ConvertTo-Json escapes safely.
+      - name: Write production connection string
+        shell: pwsh
+        env:
+          DEFAULT_CONNECTION: ${{ secrets.DEFAULT_CONNECTION }}
+        run: |
+          $config = @{ ConnectionStrings = @{ DefaultConnection = $env:DEFAULT_CONNECTION } }
+          $config | ConvertTo-Json -Depth 3 | Set-Content -Path ./publish/appsettings.Production.json -Encoding utf8
 
       - name: Deploy to MonsterASP (Web Deploy)
         uses: rasmusbuchholdt/simply-web-deploy@2.2.0
@@ -57,3 +72,6 @@ jobs:
           server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
           server-username: ${{ secrets.SERVER_USERNAME }}
           server-password: ${{ secrets.SERVER_PASSWORD }}
+          # Remove files at the destination that aren't in this publish, so stale
+          # artifacts from the previous self-contained deploy can't linger.
+          target-delete: 'true'
