@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -27,3 +27,33 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+
+  deploy:
+    # Deploy only after build+test pass, and only on push to main (never on PRs).
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Publish the deployable web app. --runtime win-x86 matches MonsterASP's
+      # guidance and yields a self-contained build that runs regardless of the
+      # runtime installed on the host. Output goes to ./publish, which is the
+      # default source-path expected by simply-web-deploy.
+      - name: Publish
+        run: dotnet publish src/SplitMate.Web/SplitMate.Web.csproj --configuration Release --runtime win-x86 --output ./publish
+
+      - name: Deploy to MonsterASP (Web Deploy)
+        uses: rasmusbuchholdt/simply-web-deploy@2.2.0
+        with:
+          website-name: ${{ secrets.WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
+          server-username: ${{ secrets.SERVER_USERNAME }}
+          server-password: ${{ secrets.SERVER_PASSWORD }}
